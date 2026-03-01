@@ -1,0 +1,7 @@
+/* CSS Custom Highlight API rules for GlowNote colors */
+::highlight(glownote-yellow) { background-color: rgba(250, 204, 21, 0.35); }
+::highlight(glownote-pink) { background-color: rgba(244, 114, 182, 0.35); }
+::highlight(glownote-blue) { background-color: rgba(96, 165, 250, 0.35); }
+::highlight(glownote-green) { background-color: rgba(74, 222, 128, 0.35); }
+::highlight(glownote-orange) { background-color: rgba(251, 146, 60, 0.35); }
+::highlight(glownote-purple) { background-color: rgba(192, 132, 252, 0.35); }
