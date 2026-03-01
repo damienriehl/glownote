@@ -5,13 +5,15 @@
   interface Props {
     annotation: Annotation;
     rect: DOMRect;
+    editMode?: boolean;
     onSaveNote: (note: string) => void;
     onChangeColor: (colorId: ColorId) => void;
     onDelete: () => void;
+    onResize?: () => void;
     onClose: () => void;
   }
 
-  let { annotation, rect, onSaveNote, onChangeColor, onDelete, onClose }: Props = $props();
+  let { annotation, rect, editMode = false, onSaveNote, onChangeColor, onDelete, onResize, onClose }: Props = $props();
   // svelte-ignore state_referenced_locally
   let noteText = $state(annotation.note ?? '');
   let isAbove = $state(false);
@@ -53,6 +55,11 @@
   style="top: {top}px; left: {left}px;"
   onkeydown={handleKeydown}
 >
+  {#if editMode}
+    <div class="edit-hint">Adjust selection handles, then:</div>
+    <button class="resize-btn" onclick={() => onResize?.()}>Update Boundaries</button>
+  {/if}
+
   <div class="color-row">
     {#each COLOR_IDS as colorId}
       <button
@@ -96,6 +103,29 @@
 
   .popover.above {
     transform: translateY(-100%);
+  }
+
+  .edit-hint {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+
+  .resize-btn {
+    width: 100%;
+    padding: 6px 12px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+
+  .resize-btn:hover {
+    background: #1d4ed8;
   }
 
   .color-row {

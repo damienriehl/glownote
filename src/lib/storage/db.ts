@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Annotation } from '../types';
+import type { Annotation, TextQuoteSelector, TextPositionSelector } from '../types';
 import type { ColorId } from '../colors';
 
 export const db = new Dexie('GlowNoteDB') as Dexie & {
@@ -51,6 +51,20 @@ export async function updateAnnotationNote(id: string, note: string): Promise<vo
 /** Update the color of an annotation */
 export async function updateAnnotationColor(id: string, colorId: ColorId): Promise<void> {
   await db.annotations.update(id, { colorId, updatedAt: Date.now() });
+}
+
+/** Update the selectors and text of an annotation (for boundary resizing) */
+export async function updateAnnotationSelectors(
+  id: string,
+  selectedText: string,
+  quote: TextQuoteSelector,
+  position: TextPositionSelector
+): Promise<void> {
+  await db.annotations.update(id, {
+    selectedText,
+    selectors: { quote, position },
+    updatedAt: Date.now(),
+  });
 }
 
 /** Search annotations by text content and notes */

@@ -1,8 +1,8 @@
 import type { Annotation } from '../lib/types';
 import type { ColorId } from '../lib/colors';
 import { rangeToQuoteSelector, rangeToPositionSelector, resolveSelectors } from '../lib/highlight/anchoring';
-import { addHighlight, removeHighlight, initHighlightRegistry } from '../lib/highlight/css-highlight';
-import { saveAnnotation, getAnnotationsForPage, deleteAnnotation } from '../lib/storage/db';
+import { addHighlight, removeHighlight, initHighlightRegistry, findContainingHighlights } from '../lib/highlight/css-highlight';
+import { saveAnnotation, getAnnotationsForPage, deleteAnnotation, updateAnnotationSelectors } from '../lib/storage/db';
 
 /** Initialize highlighting for a PDF viewer page */
 export function initPdfHighlighting(originalPdfUrl: string) {
@@ -58,6 +58,25 @@ export function initPdfHighlighting(originalPdfUrl: string) {
     async removeHighlightById(id: string): Promise<void> {
       removeHighlight(id);
       await deleteAnnotation(id);
+    },
+
+    /** Find highlights that fully contain the given range */
+    findContaining(range: Range) {
+      return findContainingHighlights(range);
+    },
+
+    /** Resize an existing highlight to a new range */
+    async resizeHighlight(id: string, newRange: Range, colorId: ColorId): Promise<void> {
+      const newText = newRange.toString();
+      const newQuote = rangeToQuoteSelector(newRange);
+      const newPosition = rangeToPositionSelector(newRange);
+
+      // Update DB
+      await updateAnnotationSelectors(id, newText, newQuote, newPosition);
+
+      // Update visual: remove old, add new
+      removeHighlight(id);
+      addHighlight(id, newRange, colorId);
     },
   };
 }

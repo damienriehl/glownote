@@ -100,3 +100,73 @@ export function hitTestHighlight(x: number, y: number): string | null {
   }
   return null;
 }
+
+/** Hit-test returning annotationId + colorId */
+export function hitTestHighlightWithColor(x: number, y: number): { annotationId: string; colorId: ColorId } | null {
+  for (const [id, { range, colorId }] of activeHighlights) {
+    const rects = range.getClientRects();
+    for (const rect of rects) {
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        return { annotationId: id, colorId };
+      }
+    }
+  }
+  return null;
+}
+
+/** Check if inner range is fully contained within outer range.
+ *  Uses compareBoundaryPoints first; falls back to rect-based check
+ *  for cases like PDF text layers where absolutely-positioned spans
+ *  can cause boundary comparisons to be unreliable. */
+function rangeContainedIn(inner: Range, outer: Range): boolean {
+  try {
+    const startOk = outer.compareBoundaryPoints(Range.START_TO_START, inner) <= 0;
+    const endOk = outer.compareBoundaryPoints(Range.END_TO_END, inner) >= 0;
+    if (startOk && endOk) return true;
+  } catch {
+    // compareBoundaryPoints can throw for detached or cross-document ranges
+  }
+
+  // Fallback: check that inner text is a substring of outer text
+  // AND inner rects are geometrically within outer rects
+  const innerText = inner.toString();
+  const outerText = outer.toString();
+  if (!innerText || !outerText.includes(innerText)) return false;
+
+  return rectsContainedIn(inner.getClientRects(), outer.getClientRects());
+}
+
+/** Check if all inner rects are geometrically covered by the outer rects */
+function rectsContainedIn(innerRects: DOMRectList, outerRects: DOMRectList): boolean {
+  if (innerRects.length === 0 || outerRects.length === 0) return false;
+
+  // Build a bounding box for outer rects
+  let oLeft = Infinity, oTop = Infinity, oRight = -Infinity, oBottom = -Infinity;
+  for (const r of outerRects) {
+    oLeft = Math.min(oLeft, r.left);
+    oTop = Math.min(oTop, r.top);
+    oRight = Math.max(oRight, r.right);
+    oBottom = Math.max(oBottom, r.bottom);
+  }
+
+  // Every inner rect must be within the outer bounding box (with 2px tolerance)
+  const TOL = 2;
+  for (const r of innerRects) {
+    if (r.left < oLeft - TOL || r.top < oTop - TOL ||
+        r.right > oRight + TOL || r.bottom > oBottom + TOL) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Find highlights that fully contain the given range */
+export function findContainingHighlights(range: Range): Array<{ annotationId: string; colorId: ColorId; range: Range }> {
+  const results: Array<{ annotationId: string; colorId: ColorId; range: Range }> = [];
+  for (const [id, entry] of activeHighlights) {
+    if (rangeContainedIn(range, entry.range)) {
+      results.push({ annotationId: id, colorId: entry.colorId, range: entry.range });
+    }
+  }
+  return results;
+}

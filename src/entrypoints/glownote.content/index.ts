@@ -1,10 +1,10 @@
 import { createShadowRootUi, type ContentScriptContext } from 'wxt/client';
 import { mount } from 'svelte';
-import { initHighlightRegistry, addHighlight, removeHighlight, changeHighlightColor, hitTestHighlight, getHighlightRange, isHighlightApiSupported } from '../../lib/highlight/css-highlight';
+import { initHighlightRegistry, addHighlight, removeHighlight, changeHighlightColor, hitTestHighlight, hitTestHighlightWithColor, getHighlightRange, findContainingHighlights, isHighlightApiSupported } from '../../lib/highlight/css-highlight';
 import { captureSelection, clearSelection } from '../../lib/highlight/selection';
 import { rangeToQuoteSelector, rangeToPositionSelector } from '../../lib/highlight/anchoring';
 import { reanchorPage, observeDomChanges, watchSpaNavigation } from '../../lib/highlight/re-anchor';
-import { saveAnnotation, deleteAnnotation, updateAnnotationNote, updateAnnotationColor } from '../../lib/storage/db';
+import { saveAnnotation, deleteAnnotation, updateAnnotationNote, updateAnnotationColor, updateAnnotationSelectors } from '../../lib/storage/db';
 import { getSettings } from '../../lib/storage/settings';
 import { sendMessage, onMessage } from '../../lib/messages';
 import { parseKeyAction } from '../../lib/keyboard';
@@ -104,12 +104,21 @@ export default defineContentScript({
     const settings = await getSettings();
     activeColorId = settings.activeColorId;
 
-    /** Create and save a highlight from the current selection */
+    /** Create and save a highlight from the current selection, or select existing same-color highlight */
     async function highlightSelection(colorId?: ColorId): Promise<Annotation | null> {
       try {
         const ranges = captureSelection();
         const range = ranges[0]; // Use first range
         const color = colorId ?? activeColorId;
+
+        // Check if selection is within an existing same-color highlight
+        const containing = findContainingHighlights(range);
+        const sameColor = containing.find(h => h.colorId === color);
+        if (sameColor) {
+          // Select the existing highlight for editing instead of creating a duplicate
+          selectHighlightForEditing(sameColor.annotationId, sameColor.range);
+          return null;
+        }
 
         const annotation: Annotation = {
           id: crypto.randomUUID(),
@@ -144,8 +153,19 @@ export default defineContentScript({
       }
     }
 
+    /** Programmatically select a highlight's full range and show edit popover */
+    function selectHighlightForEditing(annotationId: string, range: Range) {
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      lastHighlightId = annotationId;
+      showPopover(annotationId, true);
+    }
+
     /** Show popover for a highlight */
-    async function showPopover(annotationId: string) {
+    async function showPopover(annotationId: string, editMode = false) {
       const range = getHighlightRange(annotationId);
       if (!range) return;
 
@@ -171,6 +191,7 @@ export default defineContentScript({
               props: {
                 annotation,
                 rect,
+                editMode,
                 onSaveNote: async (note: string) => {
                   await updateAnnotationNote(annotationId, note);
                   sendMessage({ type: 'ANNOTATIONS_UPDATED' }).catch(() => {});
@@ -184,6 +205,27 @@ export default defineContentScript({
                   removeHighlight(annotationId);
                   await deleteAnnotation(annotationId);
                   sendMessage({ type: 'ANNOTATIONS_UPDATED' }).catch(() => {});
+                  popoverUi?.remove();
+                  popoverUi = null;
+                },
+                onResize: async () => {
+                  // Read current selection as new boundaries
+                  const sel = window.getSelection();
+                  if (!sel || sel.rangeCount === 0 || !sel.toString().trim()) return;
+                  const newRange = sel.getRangeAt(0).cloneRange();
+                  const newText = newRange.toString();
+                  const newQuote = rangeToQuoteSelector(newRange);
+                  const newPosition = rangeToPositionSelector(newRange);
+
+                  // Update DB
+                  await updateAnnotationSelectors(annotationId, newText, newQuote, newPosition);
+
+                  // Update CSS highlight: remove old, add new
+                  removeHighlight(annotationId);
+                  addHighlight(annotationId, newRange, annotation.colorId);
+
+                  sendMessage({ type: 'ANNOTATIONS_UPDATED' }).catch(() => {});
+                  sel.removeAllRanges();
                   popoverUi?.remove();
                   popoverUi = null;
                 },
@@ -248,9 +290,18 @@ export default defineContentScript({
         const selection = window.getSelection();
         if (selection && selection.toString().trim().length > 0) return; // User is selecting, not clicking
 
-        const annotationId = hitTestHighlight(e.clientX, e.clientY);
-        if (annotationId) {
-          showPopover(annotationId);
+        const hit = hitTestHighlightWithColor(e.clientX, e.clientY);
+        if (hit) {
+          // Same-color click → edit mode; different color → normal popover
+          const isEditMode = hit.colorId === activeColorId;
+          if (isEditMode) {
+            const range = getHighlightRange(hit.annotationId);
+            if (range) {
+              selectHighlightForEditing(hit.annotationId, range);
+              return;
+            }
+          }
+          showPopover(hit.annotationId);
         }
       }, 50);
     });
