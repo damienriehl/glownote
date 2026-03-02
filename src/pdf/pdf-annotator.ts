@@ -1,6 +1,7 @@
 import type { Annotation } from '../lib/types';
 import type { ColorId } from '../lib/colors';
 import { rangeToQuoteSelector, rangeToPositionSelector, resolveSelectors } from '../lib/highlight/anchoring';
+import { snapRangeToWordBoundaries } from '../lib/highlight/word-snap';
 import { addHighlight, removeHighlight, initHighlightRegistry, findContainingHighlights } from '../lib/highlight/css-highlight';
 import { saveAnnotation, getAnnotationsForPage, deleteAnnotation, updateAnnotationSelectors } from '../lib/storage/db';
 
@@ -16,7 +17,7 @@ export function initPdfHighlighting(originalPdfUrl: string) {
         return null;
       }
 
-      const range = selection.getRangeAt(0).cloneRange();
+      const range = snapRangeToWordBoundaries(selection.getRangeAt(0).cloneRange());
       const annotation: Annotation = {
         id: crypto.randomUUID(),
         pageUrl: originalPdfUrl, // Use the original PDF URL, not the viewer URL

@@ -1,4 +1,5 @@
 import { GlowNoteError, ErrorCode } from '../errors';
+import { snapRangeToWordBoundaries } from './word-snap';
 
 /** Capture the current user selection as an array of Ranges */
 export function captureSelection(): Range[] {
@@ -17,7 +18,7 @@ export function captureSelection(): Range[] {
     const range = selection.getRangeAt(i);
     const text = range.toString().trim();
     if (text.length > 0) {
-      ranges.push(range.cloneRange());
+      ranges.push(snapRangeToWordBoundaries(range.cloneRange()));
     }
   }
 

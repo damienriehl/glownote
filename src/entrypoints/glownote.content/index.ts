@@ -2,6 +2,7 @@ import { createShadowRootUi, type ContentScriptContext } from 'wxt/client';
 import { mount } from 'svelte';
 import { initHighlightRegistry, addHighlight, removeHighlight, changeHighlightColor, hitTestHighlight, hitTestHighlightWithColor, getHighlightRange, findContainingHighlights, isHighlightApiSupported } from '../../lib/highlight/css-highlight';
 import { captureSelection, clearSelection } from '../../lib/highlight/selection';
+import { snapRangeToWordBoundaries } from '../../lib/highlight/word-snap';
 import { rangeToQuoteSelector, rangeToPositionSelector } from '../../lib/highlight/anchoring';
 import { reanchorPage, observeDomChanges, watchSpaNavigation } from '../../lib/highlight/re-anchor';
 import { saveAnnotation, deleteAnnotation, updateAnnotationNote, updateAnnotationColor, updateAnnotationSelectors } from '../../lib/storage/db';
@@ -212,7 +213,7 @@ export default defineContentScript({
                   // Read current selection as new boundaries
                   const sel = window.getSelection();
                   if (!sel || sel.rangeCount === 0 || !sel.toString().trim()) return;
-                  const newRange = sel.getRangeAt(0).cloneRange();
+                  const newRange = snapRangeToWordBoundaries(sel.getRangeAt(0).cloneRange());
                   const newText = newRange.toString();
                   const newQuote = rangeToQuoteSelector(newRange);
                   const newPosition = rangeToPositionSelector(newRange);

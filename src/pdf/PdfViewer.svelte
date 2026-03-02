@@ -2,6 +2,7 @@
   import { renderPdf } from './pdf-renderer';
   import { initPdfHighlighting } from './pdf-annotator';
   import { removeHighlight, addHighlight, hitTestHighlightWithColor, getHighlightRange } from '../lib/highlight/css-highlight';
+  import { snapToWordStart, snapToWordEnd } from '../lib/highlight/word-snap';
   import ColorPicker from '../components/ColorPicker.svelte';
   import ExportControls from '../components/ExportControls.svelte';
   import { colorIdFromNumber, type ColorId } from '../lib/colors';
@@ -203,11 +204,13 @@
       const newRange = document.createRange();
       try {
         if (dragging === 'start') {
-          newRange.setStart(caretRange.startContainer, caretRange.startOffset);
+          const snapped = snapToWordStart(caretRange.startContainer, caretRange.startOffset);
+          newRange.setStart(snapped.node, snapped.offset);
           newRange.setEnd(currentRange.endContainer, currentRange.endOffset);
         } else {
           newRange.setStart(currentRange.startContainer, currentRange.startOffset);
-          newRange.setEnd(caretRange.startContainer, caretRange.startOffset);
+          const snapped = snapToWordEnd(caretRange.startContainer, caretRange.startOffset);
+          newRange.setEnd(snapped.node, snapped.offset);
         }
       } catch {
         return; // Invalid range (cross-boundary etc.)
