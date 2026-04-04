@@ -16,18 +16,14 @@
   let { annotation, rect, editMode = false, onSaveNote, onChangeColor, onDelete, onResize, onClose }: Props = $props();
   // svelte-ignore state_referenced_locally
   let noteText = $state(annotation.note ?? '');
-  let isAbove = $state(false);
 
-  // Position calculation
-  let top = $derived.by(() => {
-    const spaceBelow = window.innerHeight - rect.bottom;
-    if (spaceBelow < 200) {
-      isAbove = true;
-      return rect.top + window.scrollY - 8;
-    }
-    isAbove = false;
-    return rect.bottom + window.scrollY + 8;
-  });
+  let isAbove = $derived(window.innerHeight - rect.bottom < 200);
+
+  let top = $derived(
+    isAbove
+      ? rect.top + window.scrollY - 8
+      : rect.bottom + window.scrollY + 8
+  );
 
   let left = $derived(Math.max(8, Math.min(rect.left, window.innerWidth - 320)));
 

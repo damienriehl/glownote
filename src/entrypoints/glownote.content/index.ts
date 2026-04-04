@@ -100,6 +100,7 @@ export default defineContentScript({
     let activeColorId: ColorId = 'yellow';
     let lastHighlightId: string | null = null;
     let popoverUi: Awaited<ReturnType<typeof createShadowRootUi>> | null = null;
+    let selectionToolbarUi: Awaited<ReturnType<typeof createShadowRootUi>> | null = null;
 
     // Load settings
     const settings = await getSettings();
@@ -243,6 +244,51 @@ export default defineContentScript({
       popoverUi.mount();
     }
 
+    /** Show the selection toolbar near the given rect */
+    async function showSelectionToolbar(rect: DOMRect) {
+      hideSelectionToolbar();
+
+      try {
+        selectionToolbarUi = await createShadowRootUi(ctx, {
+          name: 'glownote-selection-toolbar',
+          position: 'inline',
+          onMount(container) {
+            import('./SelectionToolbar.svelte').then(({ default: SelectionToolbar }) => {
+              mount(SelectionToolbar, {
+                target: container,
+                props: {
+                  rect,
+                  activeColorId,
+                  onHighlight: async (colorId: ColorId) => {
+                    hideSelectionToolbar();
+                    const annotation = await highlightSelection(colorId);
+                    if (annotation) {
+                      setTimeout(() => showPopover(annotation.id), 150);
+                    }
+                  },
+                  onDismiss: () => {
+                    hideSelectionToolbar();
+                  },
+                },
+              });
+            });
+          },
+        });
+
+        selectionToolbarUi.mount();
+      } catch (e) {
+        console.warn('GlowNote: Failed to show selection toolbar', e);
+      }
+    }
+
+    /** Remove the selection toolbar */
+    function hideSelectionToolbar() {
+      if (selectionToolbarUi) {
+        selectionToolbarUi.remove();
+        selectionToolbarUi = null;
+      }
+    }
+
     // Keyboard shortcuts
     document.addEventListener('keydown', async (e) => {
       const action = parseKeyAction(e);
@@ -251,10 +297,12 @@ export default defineContentScript({
       switch (action.type) {
         case 'highlight':
           e.preventDefault();
+          hideSelectionToolbar();
           await highlightSelection();
           break;
         case 'setColor':
           e.preventDefault();
+          hideSelectionToolbar();
           if (action.colorId) {
             activeColorId = action.colorId;
             // If there's a selection, highlight it with the new color
@@ -276,7 +324,9 @@ export default defineContentScript({
           await copyToClipboard(md);
           break;
         case 'dismiss':
-          if (popoverUi) {
+          if (selectionToolbarUi) {
+            hideSelectionToolbar();
+          } else if (popoverUi) {
             popoverUi.remove();
             popoverUi = null;
           }
@@ -284,12 +334,25 @@ export default defineContentScript({
       }
     });
 
-    // Click to open popover on highlighted text
+    // Click to open popover on highlighted text, or show selection toolbar
     document.addEventListener('mouseup', (e) => {
       // Small delay to let selection complete
       setTimeout(() => {
         const selection = window.getSelection();
-        if (selection && selection.toString().trim().length > 0) return; // User is selecting, not clicking
+        if (selection && selection.toString().trim().length > 0) {
+          // Guard against form fields
+          const target = e.target as HTMLElement;
+          const tag = target.tagName?.toLowerCase();
+          if (tag === 'input' || tag === 'textarea' || target.isContentEditable) return;
+
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          showSelectionToolbar(rect);
+          return;
+        }
+
+        // No text selected — hit-test highlight for popover
+        hideSelectionToolbar();
 
         const hit = hitTestHighlightWithColor(e.clientX, e.clientY);
         if (hit) {
@@ -306,6 +369,20 @@ export default defineContentScript({
         }
       }, 50);
     });
+
+    // Dismiss toolbar on mousedown (new selection starting) or scroll
+    // Use composedPath() so clicks inside the toolbar's shadow DOM don't dismiss it
+    document.addEventListener('mousedown', (e) => {
+      if (selectionToolbarUi) {
+        const path = e.composedPath();
+        const insideToolbar = path.some(
+          (el) => el instanceof HTMLElement && el.tagName.toLowerCase() === 'glownote-selection-toolbar'
+        );
+        if (insideToolbar) return;
+      }
+      hideSelectionToolbar();
+    });
+    document.addEventListener('scroll', () => hideSelectionToolbar(), true);
 
     // Listen for messages from background/side panel
     onMessage(async (msg) => {
