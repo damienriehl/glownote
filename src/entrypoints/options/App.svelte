@@ -4,7 +4,6 @@
   import type { GlowNoteSettings } from '../../lib/types';
 
   let settings = $state<GlowNoteSettings | null>(null);
-  let syncStatus = $state('');
   let importInput = $state<HTMLInputElement>(undefined!);
 
   async function load() {
@@ -15,23 +14,6 @@
     if (!settings) return;
     settings.noteMode = mode;
     await saveSettings(settings);
-  }
-
-  async function handleAutoSyncChange(enabled: boolean) {
-    if (!settings) return;
-    settings.autoSync = enabled;
-    await saveSettings(settings);
-  }
-
-  async function authenticateDrive() {
-    try {
-      const token = await chrome.identity.getAuthToken({ interactive: true });
-      if (token) {
-        syncStatus = 'Authenticated successfully';
-      }
-    } catch (e) {
-      syncStatus = `Auth failed: ${(e as Error).message}`;
-    }
   }
 
   async function exportAllData() {
@@ -101,22 +83,6 @@
         />
         Side panel only
       </label>
-    </section>
-
-    <section>
-      <h2>Google Drive Sync</h2>
-      <label>
-        <input
-          type="checkbox"
-          checked={settings.autoSync}
-          onchange={(e) => handleAutoSyncChange((e.target as HTMLInputElement).checked)}
-        />
-        Auto-sync after highlighting
-      </label>
-      <button onclick={authenticateDrive}>Authenticate with Google Drive</button>
-      {#if syncStatus}
-        <p class="status">{syncStatus}</p>
-      {/if}
     </section>
 
     <section>

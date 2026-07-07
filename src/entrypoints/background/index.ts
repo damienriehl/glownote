@@ -43,6 +43,11 @@ export default defineBackground(() => {
     });
   }
 
+  // Clicking the toolbar icon opens the side panel (Alt+G also toggles it).
+  chrome.sidePanel
+    ?.setPanelBehavior({ openPanelOnActionClick: true })
+    .catch(() => {});
+
   chrome.runtime.onInstalled.addListener(async () => {
     const settings = await getSettings();
     createContextMenus(settings.categoryLabels);

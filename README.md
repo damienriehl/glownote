@@ -45,7 +45,7 @@ Built with [WXT](https://wxt.dev) and Svelte 5. Source lives under `src/`:
 - `lib/` — core logic: `colors.ts` (the semantic palette + `::highlight()` CSS), `highlight/`, `storage/`, `sync/`, `export/`, `keyboard.ts`, `messages.ts`, `types.ts`.
 - `pdf/` — `PdfViewer.svelte`, `pdf-renderer.ts`, `pdf-annotator.ts` (pdfjs-dist).
 
-Requested permissions: `sidePanel`, `activeTab`, `contextMenus`, `storage`, `unlimitedStorage`, `identity`.
+Requested permissions: `sidePanel`, `activeTab`, `contextMenus`, `storage`, `unlimitedStorage`. (The v0.1.0 store build is pure local-first — no `identity`/network permissions. An optional Google Drive export exists in the source but is gated off pending OAuth setup; see [`docs/store/SUBMISSION.md`](docs/store/SUBMISSION.md).)
 
 ## Stack
 
@@ -100,9 +100,19 @@ pnpm test:watch    # watch mode
 | `Alt+H`  | Highlight the selected text |
 | `1`–`6`  | Choose a highlight color |
 
+## Chrome Web Store
+
+Store-ready package and submission materials live in [`docs/store/`](docs/store/):
+a production build (`pnpm build && pnpm zip` → `.output/glownote-0.1.0-chrome.zip`),
+the 128×128 store icon, five 1280×800 screenshots, the listing copy
+([`STORE-LISTING.md`](docs/store/STORE-LISTING.md)), and a step-by-step submission
+runbook ([`SUBMISSION.md`](docs/store/SUBMISSION.md)). Submission is staged for the
+developer-account holder to upload — nothing is auto-published.
+
 ## Status
 
-Early development (version 0.1.0).
+Early development (version 0.1.0). Core flow (highlight → note → export Markdown)
+verified; store submission staged.
 
 ## License
 
