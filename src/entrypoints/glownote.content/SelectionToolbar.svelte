@@ -41,6 +41,7 @@
   class:above={isAbove}
   style="top: {top}px; left: {left}px;"
   onkeydown={handleKeydown}
+  onmousedown={(e) => e.preventDefault()}
 >
   <div class="color-row">
     {#each COLOR_IDS as colorId, i}

@@ -1,0 +1,57 @@
+{
+  "pack_id": "GLOWNOTE-FIXIT",
+  "title": "glownote — Selection Toolbar / Popover Fix-It",
+  "repo": "GLOWNOTE",
+  "campaign": "FIXIT",
+  "rubric_version": "fix-it-manual-v1",
+  "spend": "$0 (local build + Vitest + chrome-devtools MCP)",
+  "environment": "WXT build (chrome-mv3), Vitest jsdom (50 tests), chrome-devtools MCP real-browser repro (isolated context browser-campaigns)",
+  "generated_at": "2026-07-07",
+  "counts": {
+    "pass": 3,
+    "fail": 1,
+    "info": 1
+  },
+  "total_findings": 5,
+  "sections": [
+    {
+      "id": "EP-GLOWNOTE-FIXIT-001",
+      "anchor": "ep-glownote-fixit-001-root-cause-mouseup-re-show-race-the-not-working-bug",
+      "title": "Root cause — mouseup re-show race (the 'not working' bug)",
+      "status": "fail",
+      "context": "In src/entrypoints/glownote.content/index.ts the document 'mousedown' handler guarded against events inside the toolbar via composedPath(), but the 'mouseup' handler did not. Clicking a toolbar color button therefore re-entered the mouseup path (selection still present) and called showSelectionToolbar() again — re-showing the toolbar on top of the popover that onHighlight had just opened. Net effect for the user: highlighting 'didn't really work' — the toolbar flickered back and sat over/instead of the note popover.",
+      "output_sample": "mousedown handler: composedPath() guard present\nmouseup handler: NO composedPath() guard -> re-shows toolbar on in-toolbar clicks"
+    },
+    {
+      "id": "EP-GLOWNOTE-FIXIT-002",
+      "anchor": "ep-glownote-fixit-002-fix-composedpath-guard-on-mouseup-selection-hardening",
+      "title": "Fix — composedPath() guard on mouseup + selection hardening",
+      "status": "pass",
+      "context": "Added isInsideGlowNoteUi(e) (checks composedPath for the glownote-selection-toolbar / glownote-popover shadow hosts) and an early return at the top of the mouseup handler (composedPath read synchronously before the setTimeout). Also added onmousedown={e=>e.preventDefault()} to the SelectionToolbar root so the page selection is reliably preserved when clicking a color (best-practice for selection toolbars). Human-on-the-loop design notes recorded in STATUS.",
+      "output_sample": "if (isInsideGlowNoteUi(e)) return;  // top of mouseup handler\nSelectionToolbar root: onmousedown={(e) => e.preventDefault()}"
+    },
+    {
+      "id": "EP-GLOWNOTE-FIXIT-003",
+      "anchor": "ep-glownote-fixit-003-real-browser-reproduction-verification-of-the-fix",
+      "title": "Real-browser reproduction + verification of the fix",
+      "status": "pass",
+      "context": "Reproduced the exact scenario in the real Chromium (chrome-devtools MCP): a shadow-DOM host named glownote-selection-toolbar over a live text selection. A real mouse click on the toolbar button: onHighlight fired exactly once, the page selection was preserved ('voir dire process'), the FIXED composedPath guard suppressed the re-show (0 re-shows), while the OLD (unguarded) logic would have re-shown the toolbar (1 re-show). Confirms both the bug and the fix with real shadow DOM + composedPath + real click.",
+      "output_sample": "highlightCalls: 1\nselectionPreservedAtClick: \"voir dire process\"\nreshowWithGuard_FIXED: 0\nreshowNoGuard_OLDBUG: 1"
+    },
+    {
+      "id": "EP-GLOWNOTE-FIXIT-004",
+      "anchor": "ep-glownote-fixit-004-e2e-pipeline-proven-by-integration-test-highlight-note-exp",
+      "title": "E2E pipeline proven by integration test (highlight -> note -> export)",
+      "status": "pass",
+      "context": "Added tests/integration/highlight-flow.test.ts wiring the REAL modules (css-highlight, anchoring, storage/db on fake-indexeddb, export/markdown) exactly as the content script does. 6 cases: create+render+persist highlight; attach note and export it; multi-highlight export sorted by document position; re-anchor a saved selector back to the same text; sub-selection dedupe detection; remove highlight clears render+storage+export. Full suite: 50/50 green (was 44).",
+      "output_sample": "Test Files  6 passed (6)\n     Tests  50 passed (50)"
+    },
+    {
+      "id": "EP-GLOWNOTE-FIXIT-005",
+      "anchor": "ep-glownote-fixit-005-environment-blocker-true-in-extension-e2e-not-runnable-her",
+      "title": "Environment blocker — true in-extension E2E not runnable here",
+      "status": "info",
+      "context": "The chrome-devtools MCP browser is a puppeteer-managed Chromium launched with --disable-extensions and --remote-debugging-pipe (verified via chrome://version). An unpacked WXT build cannot be loaded into it, and the MCP cannot attach to a separately-launched Chrome. So the click-through was done against a faithful real-browser repro of the content-script logic (real shadow DOM/selection/Highlight API) rather than the packed extension. A follow-up to stand up a proper WXT-dev (web-ext) E2E harness is handed off (see PM queue / HANDOFF)."
+    }
+  ]
+}

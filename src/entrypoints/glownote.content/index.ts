@@ -334,8 +334,22 @@ export default defineContentScript({
       }
     });
 
+    /** True when an event originated inside one of GlowNote's own shadow UIs */
+    function isInsideGlowNoteUi(e: Event): boolean {
+      const ownHosts = ['glownote-selection-toolbar', 'glownote-popover'];
+      return e.composedPath().some(
+        (el) => el instanceof HTMLElement && ownHosts.includes(el.tagName.toLowerCase())
+      );
+    }
+
     // Click to open popover on highlighted text, or show selection toolbar
     document.addEventListener('mouseup', (e) => {
+      // Ignore mouseups inside our own toolbar/popover — otherwise clicking a
+      // toolbar color button re-triggers this handler, which re-shows the
+      // toolbar on top of the freshly-opened popover (the WIP "not working" bug).
+      // composedPath() must be read synchronously, before the setTimeout.
+      if (isInsideGlowNoteUi(e)) return;
+
       // Small delay to let selection complete
       setTimeout(() => {
         const selection = window.getSelection();
