@@ -14,6 +14,7 @@ import { copyToClipboard } from '../../lib/export/clipboard';
 import { getAnnotationsForPage } from '../../lib/storage/db';
 import type { Annotation, GlowNoteMessage } from '../../lib/types';
 import type { ColorId } from '../../lib/colors';
+import { isInsideGlowNoteUi, isInsideSelectionToolbar } from '../../lib/dom/ui-guard';
 import './style.css';
 
 /** Detect whether the current page is a PDF rendered by Chrome's built-in viewer */
@@ -334,14 +335,6 @@ export default defineContentScript({
       }
     });
 
-    /** True when an event originated inside one of GlowNote's own shadow UIs */
-    function isInsideGlowNoteUi(e: Event): boolean {
-      const ownHosts = ['glownote-selection-toolbar', 'glownote-popover'];
-      return e.composedPath().some(
-        (el) => el instanceof HTMLElement && ownHosts.includes(el.tagName.toLowerCase())
-      );
-    }
-
     // Click to open popover on highlighted text, or show selection toolbar
     document.addEventListener('mouseup', (e) => {
       // Ignore mouseups inside our own toolbar/popover — otherwise clicking a
@@ -387,13 +380,7 @@ export default defineContentScript({
     // Dismiss toolbar on mousedown (new selection starting) or scroll
     // Use composedPath() so clicks inside the toolbar's shadow DOM don't dismiss it
     document.addEventListener('mousedown', (e) => {
-      if (selectionToolbarUi) {
-        const path = e.composedPath();
-        const insideToolbar = path.some(
-          (el) => el instanceof HTMLElement && el.tagName.toLowerCase() === 'glownote-selection-toolbar'
-        );
-        if (insideToolbar) return;
-      }
+      if (selectionToolbarUi && isInsideSelectionToolbar(e)) return;
       hideSelectionToolbar();
     });
     document.addEventListener('scroll', () => hideSelectionToolbar(), true);

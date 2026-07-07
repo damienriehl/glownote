@@ -3,3 +3,6 @@ node_modules/
 .wxt/
 dist/
 *.local
+
+# E2E: Chrome for Testing cache (fetched by e2e/harness.mjs)
+.e2e-browser/
