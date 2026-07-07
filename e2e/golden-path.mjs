@@ -165,7 +165,12 @@ async function run() {
   });
 }
 
-/** Read all GlowNote annotations from the page-origin IndexedDB. */
+/**
+ * Read all GlowNote annotations from the page-origin IndexedDB.
+ * NB: 'GlowNoteDB'/'annotations' mirror the Dexie schema in src/lib/storage/db.ts —
+ * keep in sync if that DB/store name changes (a mismatch surfaces as the step-06
+ * timeout rather than a clear error).
+ */
 async function readAnnotations(page) {
   return page.evaluate(() =>
     new Promise((resolve) => {

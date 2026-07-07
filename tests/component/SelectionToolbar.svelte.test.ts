@@ -11,22 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import SelectionToolbar from '../../src/entrypoints/glownote.content/SelectionToolbar.svelte';
 import { COLOR_IDS, DEFAULT_CATEGORIES } from '../../src/lib/colors';
-
-/** Minimal DOMRect-like object for the toolbar's positioning math. */
-function makeRect(overrides: Partial<DOMRect> = {}): DOMRect {
-  return {
-    top: 200,
-    bottom: 220,
-    left: 100,
-    right: 300,
-    width: 200,
-    height: 20,
-    x: 100,
-    y: 200,
-    toJSON: () => ({}),
-    ...overrides,
-  } as DOMRect;
-}
+import { makeRect } from './helpers';
 
 function renderToolbar(props: Partial<Parameters<typeof SelectionToolbar>[1]> = {}) {
   const onHighlight = vi.fn();

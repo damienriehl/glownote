@@ -15,7 +15,7 @@ import { createServer } from 'node:http';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, extname, dirname, resolve } from 'node:path';
+import { join, extname, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import puppeteer from 'puppeteer-core';
@@ -85,7 +85,9 @@ async function startFixtureServer() {
       const url = new URL(req.url, 'http://127.0.0.1');
       const rel = url.pathname === '/' ? '/sample.html' : url.pathname;
       const filePath = join(FIXTURES_DIR, rel.replace(/^\/+/, ''));
-      if (!filePath.startsWith(FIXTURES_DIR)) { res.writeHead(403).end(); return; }
+      // Containment check with a trailing separator so a sibling dir sharing the
+      // prefix (e.g. `<parent>/fixtures-extra`) cannot pass.
+      if (filePath !== FIXTURES_DIR && !filePath.startsWith(FIXTURES_DIR + sep)) { res.writeHead(403).end(); return; }
       const body = await readFile(filePath);
       res.writeHead(200, { 'content-type': MIME[extname(filePath)] ?? 'application/octet-stream' });
       res.end(body);
@@ -140,7 +142,9 @@ async function launchChrome() {
     `--remote-debugging-port=${port}`,
     'about:blank',
   ];
-  const proc = spawn(chrome, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  // detached → Chrome becomes its own process-group leader, so teardown can
+  // kill the whole tree (renderer/gpu/zygote children) with kill(-pid).
+  const proc = spawn(chrome, args, { stdio: ['ignore', 'ignore', 'pipe'], detached: true });
   let stderr = '';
   proc.stderr.on('data', (d) => { stderr += d.toString(); });
   proc.on('exit', (code) => {
@@ -156,10 +160,15 @@ async function launchChrome() {
  */
 export async function withExtensionBrowser(fn) {
   ensureBuild();
-  const fixtures = await startFixtureServer();
-  const chrome = await launchChrome();
-  let browser;
+  // All resources are created INSIDE the try so a failure at any step (e.g. the
+  // CfT fetch or the DevTools handshake timing out) still hits the finally and
+  // cannot leak the fixture server, the Chrome process, or the temp profile.
+  let fixtures = null;
+  let chrome = null;
+  let browser = null;
   try {
+    fixtures = await startFixtureServer();
+    chrome = await launchChrome();
     browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${chrome.port}`, defaultViewport: { width: 1280, height: 800 } });
     // Grant clipboard access for the fixture origin so the export path (which
     // calls navigator.clipboard.writeText) succeeds and can be read back.
@@ -173,9 +182,13 @@ export async function withExtensionBrowser(fn) {
     const fixtureUrl = `${fixtures.origin}/sample.html`;
     return await fn({ browser, page, origin: fixtures.origin, fixtureUrl });
   } finally {
-    try { if (browser) await browser.disconnect(); } catch { /* noop */ }
-    try { chrome.proc.kill('SIGKILL'); } catch { /* noop */ }
-    await fixtures.close();
-    try { await rm(chrome.userDataDir, { recursive: true, force: true }); } catch { /* noop */ }
+    // Prefer a clean CDP-level close (reaps the whole Chrome tree); fall back to
+    // a process-group SIGKILL for the detached leader if close is unavailable.
+    try { if (browser) await browser.close(); } catch { /* noop */ }
+    if (chrome?.proc?.pid) {
+      try { process.kill(-chrome.proc.pid, 'SIGKILL'); } catch { /* group already gone */ }
+    }
+    if (fixtures) { try { await fixtures.close(); } catch { /* noop */ } }
+    if (chrome?.userDataDir) { try { await rm(chrome.userDataDir, { recursive: true, force: true }); } catch { /* noop */ } }
   }
 }

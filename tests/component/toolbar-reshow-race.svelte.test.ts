@@ -26,13 +26,7 @@ import {
   isInsideSelectionToolbar,
   GLOWNOTE_UI_HOSTS,
 } from '../../src/lib/dom/ui-guard';
-
-function makeRect(): DOMRect {
-  return {
-    top: 200, bottom: 220, left: 100, right: 300,
-    width: 200, height: 20, x: 100, y: 200, toJSON: () => ({}),
-  } as DOMRect;
-}
+import { makeRect } from './helpers';
 
 describe('composedPath guard (unit)', () => {
   it('flags events whose composedPath includes a GlowNote host', () => {
