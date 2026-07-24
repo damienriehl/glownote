@@ -86,9 +86,14 @@ pnpm zip
 ## Tests
 
 ```bash
-pnpm test          # run once
+pnpm test          # run once (Vitest: unit + real .svelte component tests)
 pnpm test:watch    # watch mode
+pnpm e2e           # in-extension golden path over CDP
 ```
+
+`pnpm e2e` builds the extension and drives it inside **Chrome for Testing**
+(fetched by `@puppeteer/browsers`) — branded Chrome disabled `--load-extension`,
+so the harness pins the testing build. See [`e2e/golden-path.mjs`](e2e/golden-path.mjs).
 
 ---
 

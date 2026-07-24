@@ -12,10 +12,13 @@ into the shipped browser extension.
 
 ## Other dependencies
 
-| Component | License |
-|-----------|---------|
-| svelte | MIT |
-| wxt, vitest, jsdom, @testing-library/* (dev) | MIT |
+| Component | License | Bundled? |
+|-----------|---------|----------|
+| svelte | MIT | yes (compiled into the extension) |
+| wxt, @wxt-dev/module-svelte | MIT | build tooling only |
+| vitest, jsdom, @testing-library/svelte | MIT | no (test-only) |
+| fake-indexeddb | Apache-2.0 | no (test-only) |
+| typescript | Apache-2.0 | no (compile-time only) |
 
 ## Dev/test-only dependencies (NOT bundled into the shipped extension)
 
