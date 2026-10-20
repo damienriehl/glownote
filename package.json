@@ -7,7 +7,7 @@
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
-    "test": "vitest run",
+    "test": "wxt prepare && vitest run",
     "test:watch": "vitest",
     "e2e": "node e2e/golden-path.mjs"
   },
